@@ -32,7 +32,7 @@ const Questions = () => {
 
         if (questionsSnapshot.exists()) {
           const questionsData = questionsSnapshot.val();
-          const questionsArray: ReactElement[] = await Promise.all(
+          const questionsArray: ReactElement[] = (await Promise.all(
             Object.keys(questionsData).map(async (userId) => {
               const muminNameSnapshot = await get(ref(db, `mumineen/${userId}/mumin_name`));
               const muminName = muminNameSnapshot.exists() ? muminNameSnapshot.val() : "Unknown";
@@ -50,11 +50,11 @@ const Questions = () => {
                   </Card>
                 ));
               } else {
-                return <h1>No data available</h1>;
+                return [<h1 key={`${userId}-no-data`}>No data available</h1>];
               }
             })
-          );
-          setQuestions(questionsArray.flat());
+          )).flat();
+          setQuestions(questionsArray);
         } else {
           setQuestions([<h1>No data available</h1>]);
         }
@@ -83,8 +83,6 @@ const Questions = () => {
   return (
     <div className='flex flex-col items-center justify-center gap-y-3'>
       {questions}
-      <Divider/>
-      <h1 className='text-xl font-bold uppercase'>Vocabulary</h1>
       {vocab}
     </div>
   );
