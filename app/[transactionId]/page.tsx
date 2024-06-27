@@ -52,12 +52,14 @@ const Questions = () => {
                       }
                     } else {
                       console.log("No data available");
+                      setQuestions([<h1>No data available</h1>]);
                     }
                   }).catch((error) => {
                     console.error(error);
                   });
                 } else {
                   console.log("No data available");
+                  setQuestions([<h1>No data available</h1>]);
                 }
               }).catch((error) => {
                 console.error(error);
@@ -67,6 +69,7 @@ const Questions = () => {
             setQuestions(questionsArray);
           } else {
             console.log("No data available");
+            setQuestions([<h1>No data available</h1>]);
           }
         }).catch((error) => {
           console.error(error);
@@ -99,6 +102,7 @@ const Questions = () => {
 
       } else {
         console.log("No data available");
+        setQuestions([<h1>No data available</h1>]);
       }
     }).catch((error) => {
       console.error(error);
