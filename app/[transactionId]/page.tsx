@@ -1,121 +1,93 @@
 'use client'
 import { app } from '@/lib/firebase';
-import { useParams } from 'next/navigation'
-import React, { ReactElement, useEffect, useState } from 'react'
-import { getDatabase, get, ref, set } from 'firebase/database';
+import { useParams } from 'next/navigation';
+import React, { ReactElement, useEffect, useState } from 'react';
+import { getDatabase, get, ref } from 'firebase/database';
 import { Card, CardHeader, CardBody, CardFooter } from "@nextui-org/card";
 import { Divider } from '@nextui-org/divider';
 
 const Questions = () => {
-  const [questions, setQuestions] = useState<ReactElement<any>[]>()
-  const [vocab, setVocab] = useState<ReactElement<any>[]>()
-  const search = useParams();
-  const transaction = search.transactionId;
+  const [questions, setQuestions] = useState<ReactElement[]>([]);
+  const [vocab, setVocab] = useState<ReactElement[]>([]);
+  const { transactionId: transaction } = useParams();
   const db = getDatabase(app);
+
   useEffect(() => {
-    const refer = ref(db, `transactions/${transaction}`);
-    get(refer).then((snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const sabaqId = data.sabaqId;
-        const date = data.date;
+    const fetchData = async () => {
+      try {
+        const transactionRef = ref(db, `transactions/${transaction}`);
+        const transactionSnapshot = await get(transactionRef);
 
-        const quesRef = ref(db, `asbaaq/${sabaqId}/questions/${date}`);
-        const vocabRef = ref(db, `asbaaq/${sabaqId}/vocab/${date}`);
-        get(quesRef).then((snapshot) => {
-          let questionsArray: any = [];
-          if (snapshot.exists()) {
-            const data = snapshot.val();
-            console.log(data);
-            for (const userId in data) {
-              const mumin_name_ref = ref(db, `mumineen/${userId}/mumin_name`)
-              get(mumin_name_ref).then((snapshot) => {
-                if (snapshot.exists()) {
-                  const data = snapshot.val();
-                  console.log(data);
-                  const mumin_name = data;
-                  const newRef = ref(db, `asbaaq/${sabaqId}/questions/${date}/${userId}`);
-                  get(newRef).then((snapshot) => {
-                    if (snapshot.exists()) {
-                      const data = snapshot.val();
-                      console.log(data);
-                      for (const question in data) {
-                        questionsArray.push(
-                          <Card key={question}>
-                            <CardHeader>{data[question]}</CardHeader>
-                            <Divider/>
-                            <CardFooter>
-                              Question by: {userId}, {mumin_name}
-                            </CardFooter>
-                          </Card>
-                        )
-                      }
-                    } else {
-                      console.log("No data available");
-                      setQuestions([<h1>No data available</h1>]);
-                    }
-                  }).catch((error) => {
-                    console.error(error);
-                  });
-                } else {
-                  console.log("No data available");
-                  setQuestions([<h1>No data available</h1>]);
-                }
-              }).catch((error) => {
-                console.error(error);
-              });
+        if (!transactionSnapshot.exists()) {
+          setQuestions([<h1>No data available</h1>]);
+          return;
+        }
 
-            }
-            setQuestions(questionsArray);
-          } else {
-            console.log("No data available");
-            setQuestions([<h1>No data available</h1>]);
-          }
-        }).catch((error) => {
-          console.error(error);
-        });
+        const { sabaqId, date } = transactionSnapshot.val();
 
-        get(vocabRef).then((snapshot) => {
-          let vocabArray: any = [];
-          const data = snapshot.val();
-          console.log(data);
-          for (const wordId in data){
-            const word = data[wordId].word;
-            const count = data[wordId].count;
-            vocabArray.push(
-              <Card key={wordId} className='w-300px'>
-                <CardHeader>{word}</CardHeader>
-                <Divider/>
-                <CardBody>
-                  Asked By: {count} mumineen
-                </CardBody>
-              </Card>
-            )
+        const [questionsSnapshot, vocabSnapshot] = await Promise.all([
+          get(ref(db, `asbaaq/${sabaqId}/questions/${date}`)),
+          get(ref(db, `asbaaq/${sabaqId}/vocab/${date}`))
+        ]);
 
-            setVocab(vocabArray);
+        if (questionsSnapshot.exists()) {
+          const questionsData = questionsSnapshot.val();
+          const questionsArray: ReactElement[] = await Promise.all(
+            Object.keys(questionsData).map(async (userId) => {
+              const muminNameSnapshot = await get(ref(db, `mumineen/${userId}/mumin_name`));
+              const muminName = muminNameSnapshot.exists() ? muminNameSnapshot.val() : "Unknown";
+              const userQuestionsSnapshot = await get(ref(db, `asbaaq/${sabaqId}/questions/${date}/${userId}`));
 
-          }
-        }).catch((error) => {
-          console.error(error);
+              if (userQuestionsSnapshot.exists()) {
+                const userQuestions = userQuestionsSnapshot.val();
+                return Object.keys(userQuestions).map((questionId) => (
+                  <Card key={questionId}>
+                    <CardHeader>{userQuestions[questionId]}</CardHeader>
+                    <Divider />
+                    <CardFooter>
+                      Question by: {userId}, {muminName}
+                    </CardFooter>
+                  </Card>
+                ));
+              } else {
+                return <h1>No data available</h1>;
+              }
+            })
+          );
+          setQuestions(questionsArray.flat());
+        } else {
+          setQuestions([<h1>No data available</h1>]);
+        }
 
-        });
-
-      } else {
-        console.log("No data available");
-        setQuestions([<h1>No data available</h1>]);
+        if (vocabSnapshot.exists()) {
+          const vocabData = vocabSnapshot.val();
+          const vocabArray = Object.keys(vocabData).map((wordId) => (
+            <Card key={wordId} className='w-300px'>
+              <CardHeader>{vocabData[wordId].word}</CardHeader>
+              <Divider />
+              <CardBody>
+                Asked By: {vocabData[wordId].count} mumineen
+              </CardBody>
+            </Card>
+          ));
+          setVocab(vocabArray);
+        }
+      } catch (error) {
+        console.error(error);
       }
-    }).catch((error) => {
-      console.error(error);
-    });
-  }, [transaction])
+    };
 
+    fetchData();
+  }, [transaction, db]);
 
   return (
     <div className='flex flex-col items-center justify-center gap-y-3'>
       {questions}
+      <Divider/>
+      <h1 className='text-xl font-bold uppercase'>Vocabulary</h1>
       {vocab}
     </div>
-  )
-}
+  );
+};
 
-export default Questions
+export default Questions;
